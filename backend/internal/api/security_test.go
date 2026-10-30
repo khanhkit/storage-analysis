@@ -124,7 +124,7 @@ func TestSameOriginHTTPSOperation(t *testing.T) {
 	}
 	token := strings.Repeat("t", 32)
 	s := NewServer(config.Config{
-		OpsAuthToken: token,
+		OpsAuthToken:    token,
 		OpsAllowedRoots: []string{root},
 	}, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodPost, "https://storage.example/api/ops/delete", strings.NewReader(`{"path":`+quoteJSON(target)+`}`))
