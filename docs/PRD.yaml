@@ -1,0 +1,62 @@
+prd_id: storage-analysis-webapp
+version: 0.1.0
+user_stories:
+  - "As a user, I want to analyze folder sizes and see them in a tree so that I can understand disk usage."
+  - "As a user, I want to sort by name or size so that I can find large folders quickly."
+  - "As a user, I want to expand/collapse folders quickly so that I can browse large trees efficiently."
+  - "As a user, I want fast reloads based on modify date so that repeated scans are quick."
+  - "As a user, I want to copy/move/delete files or folders so that I can manage storage."
+  - "As a user, I want progress visualization with colors and percentage bars so that I can compare sizes easily."
+scope:
+  in_scope:
+    - "Go backend with filesystem scanning and caching"
+    - "Vite + React TypeScript frontend with tree view and sorting"
+    - "Robocopy-based copy/move operations (multithread)"
+    - "Local-only API (no auth)"
+    - "Fast reload with mod-time cache check"
+    - "Drive picker endpoint for quick root selection"
+  out_of_scope:
+    - "Cloud sync or remote agents"
+    - "User accounts/authentication"
+    - "Cross-platform packaging/installer"
+acceptance_criteria:
+  - "User can select a root path and retrieve a tree with size and percent data"
+  - "User can quickly pick an available drive from the UI"
+  - "Tree supports expand/collapse and on-demand child loading"
+  - "Sorting by name and size works per level"
+  - "Cache avoids re-scanning unchanged directories based on modify time"
+  - "Copy/move/delete operations succeed and return status"
+  - "UI provides a clear progress bar and color semantics"
+  - "User can scan duplicate files above a size threshold using hashes"
+needs_clarification:
+  - "Max depth or size limits for scanning"
+features:
+  - name: "Filesystem tree scan"
+    description: "Recursive size aggregation with worker pool and cache"
+  - name: "Fast reload cache"
+    description: "In-memory + disk cache keyed by path with deep mod-time validation"
+  - name: "Drive picker"
+    description: "Backend drive list + quick select chips in UI"
+  - name: "Tree UI with sorting"
+    description: "Expandable tree rows, per-level sorting"
+  - name: "Operations"
+    description: "Copy/move via robocopy; delete via OS"
+  - name: "UX polish"
+    description: "Progress bars, color scales, responsive layout"
+  - name: "Duplicate scan"
+    description: "Scan files above a size threshold and group duplicates by hash"
+decisions:
+  - "Backend language: Go"
+  - "Frontend: React + Vite + TypeScript"
+  - "API: JSON over HTTP on localhost"
+  - "Cache strategy: deep mod-time validation"
+changes:
+  - "Increase default scan worker parallelism with a safe upper bound."
+  - "Parallelize deep mod-time cache validation to reduce wait time on repeated scans."
+  - "Simulate Windows Properties: full-depth scan and skip reparse points by default."
+  - "Force GOMAXPROCS to match scan worker settings for stronger parallelism in release builds."
+  - "Add live scan progress + runtime stats panel (CPU load, cores, threads, scanned counts)."
+  - "Prevent scan deadlocks by processing entries inline when worker slots are saturated."
+  - "Remove max-children limit controls in favor of full output."
+  - "Add duplicate file scan tab with hash-based grouping for files above a size threshold."
+  - "Add worker-pool hashing and progress stats for duplicate scans."

@@ -1,0 +1,107 @@
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tree-row {
+  display: grid;
+  grid-template-columns: 1.6fr 0.6fr 0.9fr 0.5fr;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.tree-row:hover {
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.tree-row.selected {
+  border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2);
+}
+
+.tree-row.placeholder {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.tree-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.tree-cell.name {
+  gap: 0.5rem;
+}
+
+.tree-cell.size,
+.tree-cell.meta {
+  justify-content: flex-end;
+  color: var(--color-text-muted);
+}
+
+.tree-cell.percent {
+  justify-content: space-between;
+}
+
+.label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toggle {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.toggle.spacer {
+  opacity: 0;
+}
+
+.select {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: transparent;
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.icon {
+  font-size: 1rem;
+}
+
+.badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.2);
+  color: var(--color-accent);
+}
+
+.bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  overflow: hidden;
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
