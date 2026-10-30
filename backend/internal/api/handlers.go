@@ -1,8 +1,11 @@
 package api
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,20 +17,26 @@ import (
 	"storageanalysis/internal/duplicates"
 	"storageanalysis/internal/ops"
 	"storageanalysis/internal/scanner"
+	"storageanalysis/internal/security"
 	"storageanalysis/internal/system"
 	"storageanalysis/internal/util"
 )
 
 type Server struct {
 	cfg     config.Config
+	paths   *security.Paths
+	pathErr error
 	scanner *scanner.Scanner
 	dupScanner *duplicates.Scanner
 	ops     *ops.Robocopy
 }
 
 func NewServer(cfg config.Config, scanner *scanner.Scanner, dupScanner *duplicates.Scanner, opsClient *ops.Robocopy) *Server {
+	paths, pathErr := security.NewPaths(cfg.OpsAllowedRoots)
 	return &Server{
 		cfg:     cfg,
+		paths:   paths,
+		pathErr: pathErr,
 		scanner: scanner,
 		dupScanner: dupScanner,
 		ops:     opsClient,
@@ -48,7 +57,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("/api/ops/delete", s.handleDelete)
 	mux.HandleFunc("/", s.handleStatic)
 
-	return s.withCors(mux)
+	return s.withSecurity(mux)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -256,7 +265,22 @@ func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.ops.Copy(r.Context(), req.Source, req.Destination)
+
+	source, isDir, err := s.paths.CheckSource(req.Source)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	destination, err := s.paths.CheckDestination(req.Destination)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if isDir && security.IsWithin(source, destination) {
+		writeError(w, http.StatusBadRequest, "destination cannot be inside source")
+		return
+	}
+	result, err := s.ops.Copy(r.Context(), source, destination)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -289,7 +313,22 @@ func (s *Server) handleMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.ops.Move(r.Context(), req.Source, req.Destination)
+
+	source, isDir, err := s.paths.CheckSource(req.Source)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	destination, err := s.paths.CheckDestination(req.Destination)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if isDir && security.IsWithin(source, destination) {
+		writeError(w, http.StatusBadRequest, "destination cannot be inside source")
+		return
+	}
+	result, err := s.ops.Move(r.Context(), source, destination)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -322,8 +361,8 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.ops.Delete(r.Context(), req.Path); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	if err := s.paths.Delete(req.Path); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -364,6 +403,35 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, "asset not found")
 }
 
+// withSecurity authenticates operations and, in remote mode, the entire data API.
+// No cookie or ambient browser credential is accepted.
+func (s *Server) withSecurity(next http.Handler) http.Handler {
+	csrf := http.NewCrossOriginProtection()
+	for _, origin := range s.cfg.AllowedOrigins {
+		_ = csrf.AddTrustedOrigin(origin)
+	}
+	guarded := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		isOp := strings.HasPrefix(r.URL.Path, "/api/ops/")
+		protected := isOp || (s.cfg.AllowRemoteBind && strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/api/health")
+		if protected {
+			if s.cfg.OpsAuthToken == "" || s.pathErr != nil || !s.paths.Enabled() {
+				writeError(w, http.StatusServiceUnavailable, "file operations are disabled; configure OPS_AUTH_TOKEN and OPS_ALLOWED_ROOTS")
+				return
+			}
+			constPrefix := "Bearer "
+			value := r.Header.Get("Authorization")
+			if !strings.HasPrefix(value, constPrefix) ||
+				subtle.ConstantTimeCompare([]byte(strings.TrimPrefix(value, constPrefix)), []byte(s.cfg.OpsAuthToken)) != 1 {
+				w.Header().Set("WWW-Authenticate", `Bearer realm="storage-analysis"`)
+				writeError(w, http.StatusUnauthorized, "authentication required")
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+	return s.withCors(csrf.Handler(guarded))
+}
+
 func (s *Server) withCors(next http.Handler) http.Handler {
 	allowed := make(map[string]struct{}, len(s.cfg.AllowedOrigins))
 	for _, origin := range s.cfg.AllowedOrigins {
@@ -373,15 +441,17 @@ func (s *Server) withCors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		if origin != "" {
-			if _, ok := allowed[origin]; ok {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Vary", "Origin")
+			if _, ok := allowed[origin]; !ok {
+				writeError(w, http.StatusForbidden, "untrusted origin")
+				return
 			}
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Add("Vary", "Origin")
 		}
 
 		if r.Method == http.MethodOptions {
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -391,13 +461,17 @@ func (s *Server) withCors(next http.Handler) http.Handler {
 }
 
 func readJSON(r *http.Request, dst any) error {
-	deco := json.NewDecoder(r.Body)
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
+		return errors.New("Content-Type must be application/json")
+	}
+	deco := json.NewDecoder(io.LimitReader(r.Body, 16*1024))
 	deco.DisallowUnknownFields()
 	if err := deco.Decode(dst); err != nil {
 		return err
 	}
-
-	if deco.More() {
+	var trailing any
+	if err := deco.Decode(&trailing); err != io.EOF {
 		return errors.New("unexpected trailing json")
 	}
 	return nil
