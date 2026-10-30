@@ -9,10 +9,12 @@ import (
 
 func TestValidateRejectsUnsafeNetworkBind(t *testing.T) {
 	allowed := filepath.Join(t.TempDir(), "allowed")
-	if err := os.Mkdir(allowed, 0o700); err != nil { t.Fatal(err) }
+	if err := os.Mkdir(allowed, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	tests := []struct {
-		name string
-		cfg Config
+		name  string
+		cfg   Config
 		valid bool
 	}{
 		{"loopback read only", Config{Address: "127.0.0.1:8080"}, true},
