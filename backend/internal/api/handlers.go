@@ -23,23 +23,23 @@ import (
 )
 
 type Server struct {
-	cfg     config.Config
-	paths   *security.Paths
-	pathErr error
-	scanner *scanner.Scanner
+	cfg        config.Config
+	paths      *security.Paths
+	pathErr    error
+	scanner    *scanner.Scanner
 	dupScanner *duplicates.Scanner
-	ops     *ops.Robocopy
+	ops        *ops.Robocopy
 }
 
 func NewServer(cfg config.Config, scanner *scanner.Scanner, dupScanner *duplicates.Scanner, opsClient *ops.Robocopy) *Server {
 	paths, pathErr := security.NewPaths(cfg.OpsAllowedRoots)
 	return &Server{
-		cfg:     cfg,
-		paths:   paths,
-		pathErr: pathErr,
-		scanner: scanner,
+		cfg:        cfg,
+		paths:      paths,
+		pathErr:    pathErr,
+		scanner:    scanner,
 		dupScanner: dupScanner,
-		ops:     opsClient,
+		ops:        opsClient,
 	}
 }
 
@@ -106,16 +106,16 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := StatsData{
-		CPUPercent:        runtimeStats.CPUPercent,
-		ProcessCPUPercent: runtimeStats.ProcessCPUPercent,
-		Cores:             runtimeStats.Cores,
-		Threads:           runtimeStats.Threads,
-		Goroutines:        runtimeStats.Goroutines,
-		FilesScanned:      scanStats.FilesScanned,
-		DirsScanned:       scanStats.DirsScanned,
-		Scanning:          scanStats.Scanning,
-		StartedAt:         scanStats.StartedAt,
-		ElapsedMs:         elapsedMs,
+		CPUPercent:            runtimeStats.CPUPercent,
+		ProcessCPUPercent:     runtimeStats.ProcessCPUPercent,
+		Cores:                 runtimeStats.Cores,
+		Threads:               runtimeStats.Threads,
+		Goroutines:            runtimeStats.Goroutines,
+		FilesScanned:          scanStats.FilesScanned,
+		DirsScanned:           scanStats.DirsScanned,
+		Scanning:              scanStats.Scanning,
+		StartedAt:             scanStats.StartedAt,
+		ElapsedMs:             elapsedMs,
 		DuplicateFilesScanned: dupStats.FilesScanned,
 		DuplicateDirsScanned:  dupStats.DirsScanned,
 		DuplicateHashed:       dupStats.HashedFiles,
@@ -146,10 +146,10 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 	useCache := parseBool(r.URL.Query().Get("useCache"), true)
 
 	result, err := s.scanner.Scan(r.Context(), path, scanner.ScanOptions{
-		MaxDepth: depth,
-		UseCache: useCache,
+		MaxDepth:      depth,
+		UseCache:      useCache,
 		CacheStrategy: s.cfg.CacheStrategy,
-		ResetStats: true,
+		ResetStats:    true,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -186,10 +186,10 @@ func (s *Server) handleChildren(w http.ResponseWriter, r *http.Request) {
 	useCache := parseBool(r.URL.Query().Get("useCache"), true)
 
 	result, err := s.scanner.Scan(r.Context(), path, scanner.ScanOptions{
-		MaxDepth: depth,
-		UseCache: useCache,
+		MaxDepth:      depth,
+		UseCache:      useCache,
 		CacheStrategy: s.cfg.CacheStrategy,
-		ResetStats: false,
+		ResetStats:    false,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -265,7 +265,6 @@ func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	source, isDir, err := s.paths.CheckSource(req.Source)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -312,7 +311,6 @@ func (s *Server) handleMove(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
 
 	source, isDir, err := s.paths.CheckSource(req.Source)
 	if err != nil {
