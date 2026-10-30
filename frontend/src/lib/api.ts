@@ -2,15 +2,32 @@ import type { ApiResponse, DriveData, DuplicatePayload, OperationData, ScanPaylo
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
+// The credential stays in memory only: never store filesystem access tokens
+// in localStorage, URLs, cookies, or persistent browser state.
+let operationToken: string | null = null
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const send = () => fetch(`${API_BASE}${path}`, {
+    ...options,
     headers: {
-      'Content-Type': 'application/json'
-    },
-    ...options
+      'Content-Type': 'application/json',
+      ...(operationToken ? { Authorization: `Bearer ${operationToken}` } : {}),
+      ...options?.headers
+    }
   })
 
-  const payload = (await response.json()) as ApiResponse<T>
+  let response = await send()
+  if (response.status === 401) {
+    operationToken = null
+    const entered = window.prompt('Storage Analysis access token (not saved):')
+    if (entered?.trim()) {
+      operationToken = entered.trim()
+      response = await send()
+      if (response.status === 401) operationToken = null
+    }
+  }
+
+  const payload = (await response.json()) as ApiResponse<T>;
   if (!response.ok || !payload.success) {
     throw new Error(payload.error ?? 'Request failed')
   }
