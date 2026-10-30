@@ -94,7 +94,7 @@ function App() {
   }
 
   const updateTreeChildren = useCallback(
-    (node: TreeNode, targetPath: string, children: TreeNode[]) => {
+    (node: TreeNode, targetPath: string, children: TreeNode[]): TreeNode => {
       if (node.path === targetPath) {
         return { ...node, children }
       }
