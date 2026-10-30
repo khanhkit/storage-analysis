@@ -42,7 +42,9 @@ func TestPathsConfineOperations(t *testing.T) {
 		t.Fatal("allowed root destination must not be directly mutable")
 	}
 	if _, _, err := p.CheckSource(target); err != nil {
-		t.Fatal(err)
+		root := p.roots[0]
+		relative, relErr := filepath.Rel(root, target)
+		t.Fatalf("CheckSource(%q): %v (configured=%q, canonical=%q, relative=%q, relErr=%v)", target, err, allowed, root, relative, relErr)
 	}
 	if err := p.Delete(target); err != nil {
 		t.Fatal(err)
