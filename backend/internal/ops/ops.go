@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
 )
 
 type Options struct {
