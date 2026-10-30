@@ -56,14 +56,20 @@ func TestSymlinkEscapeBlocked(t *testing.T) {
 	base := t.TempDir()
 	allowed := filepath.Join(base, "allowed")
 	outside := filepath.Join(base, "outside")
-	if err := os.Mkdir(allowed, 0o700); err != nil { t.Fatal(err) }
-	if err := os.Mkdir(outside, 0o700); err != nil { t.Fatal(err) }
+	if err := os.Mkdir(allowed, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(outside, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	link := filepath.Join(allowed, "link")
 	if err := os.Symlink(outside, link); err != nil {
 		t.Skipf("symlink unavailable: %v", err)
 	}
 	p, err := NewPaths([]string{allowed})
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := p.Delete(link); err == nil {
 		t.Fatal("symlink deletion must be rejected")
 	}
