@@ -115,3 +115,26 @@ func TestRemoteReadRequiresToken(t *testing.T) {
 		t.Fatalf("remote read without auth: got %d", res.Code)
 	}
 }
+
+func TestSameOriginHTTPSOperation(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "safe.txt")
+	if err := os.WriteFile(target, []byte("safe"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	token := strings.Repeat("t", 32)
+	s := NewServer(config.Config{
+		OpsAuthToken: token,
+		OpsAllowedRoots: []string{root},
+	}, nil, nil, nil)
+	req := httptest.NewRequest(http.MethodPost, "https://storage.example/api/ops/delete", strings.NewReader(`{"path":`+quoteJSON(target)+`}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Origin", "https://storage.example")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	res := httptest.NewRecorder()
+	s.Router().ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("same-origin HTTPS request rejected: %d %s", res.Code, res.Body.String())
+	}
+}
