@@ -21,6 +21,9 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
 
 	cacheStore := cache.New(cache.Options{
 		MaxEntries: cfg.CacheMaxEntries,
@@ -48,7 +51,13 @@ func main() {
 
 	go func() {
 		log.Printf("storage analysis server listening on %s", cfg.Address)
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		var err error
+		if cfg.TLSCertFile != "" {
+			err = httpServer.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
+		} else {
+			err = httpServer.ListenAndServe()
+		}
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("server error: %v", err)
 		}
 	}()
