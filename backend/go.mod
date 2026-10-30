@@ -1,6 +1,6 @@
 module storageanalysis
 
-go 1.22
+go 1.25
 
 require (
 	github.com/go-ole/go-ole v1.2.6 // indirect

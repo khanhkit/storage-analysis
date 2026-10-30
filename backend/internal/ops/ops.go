@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"storageanalysis/internal/util"
 )
 
 type Options struct {
@@ -52,23 +50,6 @@ func (r *Robocopy) Copy(ctx context.Context, source, destination string) (Result
 
 func (r *Robocopy) Move(ctx context.Context, source, destination string) (Result, error) {
 	return r.run(ctx, "move", source, destination)
-}
-
-func (r *Robocopy) Delete(ctx context.Context, target string) error {
-	if util.IsRootPath(target) {
-		return errors.New("refusing to delete root path")
-	}
-
-	info, err := os.Stat(target)
-	if err != nil {
-		return err
-	}
-
-	if info.IsDir() {
-		return os.RemoveAll(target)
-	}
-
-	return os.Remove(target)
 }
 
 func (r *Robocopy) run(ctx context.Context, mode, source, destination string) (Result, error) {
@@ -114,7 +95,7 @@ func buildArgs(mode, source, destination string, isDir bool, threads int) ([]str
 	}
 
 	threadArg := fmt.Sprintf("/MT:%d", threads)
-	baseArgs := []string{"/R:1", "/W:1", threadArg, "/NFL", "/NDL", "/NJH", "/NJS", "/NP"}
+	baseArgs := []string{"/R:1", "/W:1", threadArg, "/NFL", "/NDL", "/NJH", "/NJS", "/NP", "/XJ", "/SL"}
 
 	if isDir {
 		destDir := destination
