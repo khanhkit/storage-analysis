@@ -29,11 +29,20 @@ func NewPaths(allowed []string) (*Paths, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid allowed root %q: %w", raw, err)
 		}
+		if isFilesystemRoot(resolved) {
+			return nil, fmt.Errorf("allowed root resolves to a filesystem root: %q", raw)
+		}
 		info, err := os.Stat(resolved)
 		if err != nil || !info.IsDir() {
 			return nil, fmt.Errorf("allowed root must be an existing directory: %q", raw)
 		}
-		p.roots = append(p.roots, resolved)
+		// Windows may canonicalize RUNNER~1 into runneradmin in EvalSymlinks.
+		// Preserve the configured spelling so incoming Win32 paths still match;
+		// the resolved spelling is an equivalent alias of the same directory.
+		p.roots = append(p.roots, clean)
+		if resolved != clean {
+			p.roots = append(p.roots, resolved)
+		}
 	}
 	return p, nil
 }
