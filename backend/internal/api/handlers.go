@@ -405,6 +405,9 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 // No cookie or ambient browser credential is accepted.
 func (s *Server) withSecurity(next http.Handler) http.Handler {
 	csrf := http.NewCrossOriginProtection()
+	csrf.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusForbidden, "cross-origin request forbidden")
+	}))
 	for _, origin := range s.cfg.AllowedOrigins {
 		_ = csrf.AddTrustedOrigin(origin)
 	}
@@ -439,12 +442,18 @@ func (s *Server) withCors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		if origin != "" {
-			if _, ok := allowed[origin]; !ok {
-				writeError(w, http.StatusForbidden, "untrusted origin")
-				return
+			scheme := "http"
+			if r.TLS != nil {
+				scheme = "https"
 			}
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Add("Vary", "Origin")
+			if origin != scheme+"://"+r.Host {
+				if _, ok := allowed[origin]; !ok {
+					writeError(w, http.StatusForbidden, "untrusted origin")
+					return
+				}
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Add("Vary", "Origin")
+			}
 		}
 
 		if r.Method == http.MethodOptions {
